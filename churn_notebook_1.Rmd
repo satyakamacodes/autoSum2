@@ -1,0 +1,116 @@
+---
+title: "Churn prediction in telecom"
+author: "Dr. Satyakama Paul"
+# date: "05 January 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r data_fetching_preprocessing, echo=FALSE}
+modeling_data <- read.csv("churn.csv",
+                          header = T,
+                          sep = ",",
+                          na.strings = c("", 
+                                         "NA"))
+
+modeling_data$churn <- ifelse(modeling_data$churn =="Yes", 
+                              "leaving",
+                              "not_leaving")
+
+modeling_data$churn <- as.factor(modeling_data$churn)
+
+# dim(modeling_data)
+
+modeling_data <- modeling_data[complete.cases(modeling_data),]
+
+str(modeling_data)
+```
+## Facet plots
+
+```{r eda, echo=FALSE, warning=FALSE, message=FALSE, fig.height=8, fig.width=16}
+library(ggplot2)
+# suppressPackageStartupMessages(data.ta)
+
+library(scales)
+
+# print(require(scales))
+
+ggplot(modeling_data,
+       aes(x = churn,
+           fill = churn)) +
+  geom_bar(aes(y = (..count..)/sum(..count..))) +
+  geom_text(aes(y = ((..count..)/sum(..count..)), 
+                label = scales::percent((..count..)/sum(..count..))), 
+            stat = "count", 
+            vjust = -0.25) +
+  scale_y_continuous(labels = percent) +
+  labs(title = "Percentage of customers leaving vs. not leaving", 
+       y = "Percent", 
+       x = "Churn")+
+  theme(plot.title = element_text(size = 30,
+                                  face = "bold"),
+        text = element_text(size=24))
+
+library(tidyverse)
+
+library(GGally)
+
+plot_1 <- modeling_data[,-c(3:4)] %>% 
+  GGally::ggpairs(data = ., 
+                  aes(color = churn))+
+    theme(text = element_text(size=12))
+
+plot_1
+
+
+library(ggthemes)
+modeling_data %>%
+  #select(-customerID) %>%
+  #select_if(is.numeric) %>%
+  select(churn, 
+         account_length,
+         number_vmail_messages,
+         total_day_minutes, 
+         total_day_calls,
+         total_day_charge,
+         total_eve_minutes,
+         total_eve_calls,
+         total_eve_charge,
+         total_night_minutes,
+         total_night_calls,
+         total_night_charge       
+         total_intl_minutes,
+         total_intl_calls,
+         total_intl_charge,
+         number_customerservice_calls) %>%
+  gather(x, y, account_length:number_customerservice_calls) %>%
+  ggplot(aes(x = y, fill = churn, color = churn)) +
+    facet_wrap(~ x, ncol = 3, scales = "free") +
+    geom_density(alpha = 0.5) +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1),
+          legend.position = "top") 
+
+
+```
+<!-- ## R Markdown -->
+
+<!-- This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>. -->
+
+<!-- When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this: -->
+
+<!-- ```{r cars} -->
+<!-- summary(cars) -->
+<!-- ``` -->
+
+<!-- ## Including Plots -->
+
+<!-- You can also embed plots, for example: -->
+
+<!-- ```{r pressure, echo=FALSE} -->
+<!-- plot(pressure) -->
+<!-- ``` -->
+
+<!-- Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot. -->
