@@ -28,9 +28,9 @@ modeling_data <- modeling_data[complete.cases(modeling_data),]
 
 str(modeling_data)
 ```
-## Facet plots
+## Churn to stay split
 
-```{r eda, echo=FALSE, warning=FALSE, message=FALSE, fig.height=8, fig.width=16}
+```{r eda_1, echo=FALSE, warning=FALSE, message=FALSE, fig.height=8, fig.width=16}
 library(ggplot2)
 # suppressPackageStartupMessages(data.ta)
 
@@ -47,26 +47,32 @@ ggplot(modeling_data,
             stat = "count", 
             vjust = -0.25) +
   scale_y_continuous(labels = percent) +
-  labs(title = "Percentage of customers leaving vs. not leaving", 
-       y = "Percent", 
+  labs(y = "Percent", 
        x = "Churn")+
   theme(plot.title = element_text(size = 30,
                                   face = "bold"),
         text = element_text(size=24))
 
+```
+
+## Facet plots of continuous variables
+```{r eda_2, echo=FALSE, warning=FALSE, message=FALSE, fig.height=8, fig.width=16}
+
 library(tidyverse)
 
-library(GGally)
+# library(GGally)
+# 
+# plot_1 <- modeling_data[,-c(3:4)] %>% 
+#   GGally::ggpairs(data = ., 
+#                   aes(color = churn))+
+#     theme(text = element_text(size=12))
+# 
+# plot_1
 
-plot_1 <- modeling_data[,-c(3:4)] %>% 
-  GGally::ggpairs(data = ., 
-                  aes(color = churn))+
-    theme(text = element_text(size=12))
-
-plot_1
-
-
+library(magrittr)
 library(ggthemes)
+library(dplyr)
+
 modeling_data %>%
   #select(-customerID) %>%
   #select_if(is.numeric) %>%
@@ -81,7 +87,7 @@ modeling_data %>%
          total_eve_charge,
          total_night_minutes,
          total_night_calls,
-         total_night_charge       
+         total_night_charge,       
          total_intl_minutes,
          total_intl_calls,
          total_intl_charge,
@@ -91,7 +97,175 @@ modeling_data %>%
     facet_wrap(~ x, ncol = 3, scales = "free") +
     geom_density(alpha = 0.5) +
     theme(axis.text.x = element_text(angle = 90, hjust = 1),
-          legend.position = "top") 
+          legend.position = "top") +
+  # labs(title = "Continuous variables")+
+  theme(plot.title = element_text(size = 30,
+                                  face = "bold"),
+        text = element_text(size=14))
+```
+
+
+## Facet plots of categorical variables
+```{r eda_3, echo=FALSE, warning=FALSE, message=FALSE, fig.height=8, fig.width=16}
+
+p_3<- ggplot(modeling_data,
+       aes(x = voicemail_plan,
+           fill = churn)) +
+        geom_bar(aes(y = (..count..)/sum(..count..))) +
+        geom_text(aes(y = ((..count..)/sum(..count..)), 
+                      label = scales::percent((..count..)/sum(..count..))), 
+                  stat = "count", 
+                  vjust = -0.25) +
+        scale_y_continuous(labels = percent) +
+        labs(y = "Percent", 
+             x = "Churn")+
+        theme(plot.title = element_text(size = 30,
+                                        face = "bold"),
+              text = element_text(size=24))
+
+p_4<- ggplot(modeling_data,
+       aes(x = international_plan,
+           fill = churn)) +
+        geom_bar(aes(y = (..count..)/sum(..count..))) +
+        geom_text(aes(y = ((..count..)/sum(..count..)), 
+                      label = scales::percent((..count..)/sum(..count..))), 
+                  stat = "count", 
+                  vjust = -0.25) +
+        scale_y_continuous(labels = percent) +
+        labs(y = "Percent", 
+             x = "Churn")+
+        theme(plot.title = element_text(size = 30,
+                                        face = "bold"),
+              text = element_text(size=24))
+
+library(ggpubr)
+
+figure <- ggarrange(p_3, p_4,
+                    labels = c("voicemail_plan", "international_plan"),
+                    ncol = 2, nrow = 1)
+figure
+
+# modeling_data %>%
+#   # select_if(is.factor) %>%
+#   select(churn, everything()) %>%
+#   ggplot(aes(x = y, y = n, fill = churn, color = churn)) +
+#     facet_wrap(~ x, ncol = 2, scales = "free") +
+#     geom_bar(stat = "identity", alpha = 0.5) +
+#     theme(axis.text.x = element_text(angle = 90, hjust = 1),
+#           legend.position = "top"
+
+```
+
+## Spatial distribution of churns to stays
+
+```{r eda_4, echo=FALSE, warning=FALSE, message=FALSE, fig.height=8, fig.width=16}
+
+library(Rtsne)
+## Curating the database for analysis with both t-SNE and PCA
+# Labels<-modeling_data$churn
+# modeling_data$churn<-as.factor(modeling_data$churn)
+# ## for plotting
+# colors = rainbow(length(unique(modeling_data$churn)))
+# names(colors) = unique(modeling_data$churn)
+
+## Executing the algorithm on curated data
+tsne <- Rtsne(modeling_data[,-1], dims = 2, perplexity=30, verbose=TRUE, max_iter = 100)
+
+
+## Plotting
+# plot(tsne$Y, t='n', main="tsne")
+# text(tsne$Y, labels=modeling_data$churn, col=colors[modeling_data$churn])
+
+
+# library(ggplot2)
+tsne_plot <- data.frame(x = tsne$Y[,1], 
+                        y = tsne$Y[,2], 
+                        col = modeling_data$churn)
+ggplot(tsne_plot) + geom_point(aes(x=x, y=y, color=col))
+
+```
+
+## Modeling of historical data - results
+
+```{r modeling_1, echo=FALSE, warning=FALSE, message=FALSE, fig.height=8, fig.width=16}
+set.seed(100)
+
+splitSample <- sample(1:2,
+                      size=nrow(modeling_data),
+                      prob=c(0.8,0.2),
+                      replace = T)
+
+training_data <- modeling_data[splitSample==1,]
+
+# cat("The number of rows and columns in training_data are", 
+#     dim(training_data)[1],
+#     "and",
+#     dim(training_data)[2],
+#     "respectively.",
+#     "\n")
+
+# validation_data <- modeling_data[splitSample==2,]
+# 
+# cat("The number of rows and columns in validation_data are", 
+#     dim(validation_data)[1],
+#     "and",
+#     dim(validation_data)[2],
+#     "respectively.",
+#     "\n")
+
+testing_data <- modeling_data[splitSample==2,]
+
+# cat("The number of rows and columns in testing_data are", 
+#     dim(testing_data)[1],
+#     "and",
+#     dim(testing_data)[2],
+#     "respectively.",
+#     "\n")
+
+library(caret)
+
+ctrl <- trainControl(method = "repeatedcv", 
+                     number = 5, 
+                     repeats = 3, 
+                     verboseIter = FALSE,
+                     sampling = "smote")
+
+set.seed(42)
+
+model_rf_smote <- caret::train(churn ~ .,
+                               data = training_data,
+                               method = "rf",
+                               preProcess = c("scale", "center"),
+                               trControl = ctrl)
+
+
+final_smote <- data.frame(actual = testing_data$churn,
+                          predict(model_rf_smote,
+                                  newdata = testing_data,
+                                  type = "prob"))
+
+
+saveRDS(final_smote, "final_smote.rds")
+
+fetched_model <- readRDS("final_smote.rds")
+
+fetched_model$predict <- ifelse(fetched_model$leaving > 0.5, 
+                              "leaving", 
+                              "not_leaving")
+
+# final_smote$predict <- data.frame(final_smote$predict)
+# 
+fetched_model$predict <- as.factor(fetched_model$predict)
+# 
+testing_data$churn <- as.factor(testing_data$churn)
+# 
+# levels(fetched_model$predict) <- levels(testing_data$churn)
+# 
+# 
+cm_smote <- confusionMatrix(as.factor(fetched_model$predict),
+                            as.factor(testing_data$churn))
+# 
+cm_smote
 
 
 ```
